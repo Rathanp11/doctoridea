@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Report": {
+      "title": "Report",
+      "description": "Secure clinical consultation report",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the report"
+        },
+        "patientName": {
+          "type": "string",
+          "description": "Name of the patient"
+        },
+        "patientPhone": {
+          "type": "string",
+          "description": "Phone number of the patient"
+        },
+        "patientEmail": {
+          "type": "string",
+          "description": "Email address of the patient"
+        },
+        "consultationDate": {
+          "type": "string",
+          "description": "Date of the consultation"
+        },
+        "transcript": {
+          "type": "string",
+          "description": "Raw transcript of the conversation"
+        },
+        "passkey": {
+          "type": "string",
+          "description": "Access passkey"
+        },
+        "summary": {
+          "type": "object",
+          "description": "Structured summary containing diagnosis and prescription"
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Whether the report was approved by the doctor"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the report was created"
+        }
+      },
+      "required": [
+        "id",
+        "patientName",
+        "patientPhone",
+        "patientEmail",
+        "consultationDate",
+        "passkey",
+        "summary",
+        "isApproved"
+      ]
+    }
+  },
+  "firestore": {
+    "reports/{reportId}": {
+      "schema": "Report",
+      "description": "Collection of patient consultation reports"
+    }
+  }
+}

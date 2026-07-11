@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /reports/{reportId} {
+      // Allow creation of reports with strict key and field validation
+      allow create: if request.resource.data.keys().hasAll([
+        'id', 'patientName', 'patientPhone', 'patientEmail', 
+        'consultationDate', 'passkey', 'summary', 'isApproved', 'createdAt'
+      ]) 
+      && request.resource.data.id == reportId
+      && request.resource.data.patientName is string
+      && request.resource.data.patientEmail is string
+      && request.resource.data.passkey is string;
+
+      // Allow reading reports by their unique secure UUID
+      allow get: if true;
+
+      // Prevent editing or deleting reports to preserve clinical records integrity
+      allow update, delete: if false;
+    }
+  }
+}

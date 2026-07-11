@@ -1,0 +1,6 @@
+{
+  "name": "ConsultNotes",
+  "description": "A secure AI-powered consultation recorder, transcriber, and summary tool for medical professionals.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
