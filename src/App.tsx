@@ -91,6 +91,7 @@ export default function App() {
   // Mock server mail log list
   const [sentEmails, setSentEmails] = useState<SimulatedEmail[]>([]);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
+  const [appNotification, setAppNotification] = useState<{ type: "success" | "error" | "warning"; message: string } | null>(null);
 
   // Audio recording references
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -318,6 +319,7 @@ export default function App() {
   const processAudioAndSummarize = async () => {
     setIsProcessing(true);
     setProcessingStatus("Transcribing clinical audio dialogue...");
+    setAppNotification(null); // clear previous notifications
 
     try {
       const mimeType = recorderMimeTypeRef.current;
@@ -338,7 +340,8 @@ export default function App() {
           });
 
           if (!transResponse.ok) {
-            throw new Error("Audio transcription failed. Using fallback transcript.");
+            const errorData = await transResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || "Audio transcription failed.");
           }
 
           const transData = await transResponse.json();
@@ -354,7 +357,8 @@ export default function App() {
           });
 
           if (!sumResponse.ok) {
-            throw new Error("AI Summary generation failed");
+            const errorData = await sumResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || "AI Summary generation failed");
           }
 
           const sumData = await sumResponse.json();
@@ -363,12 +367,20 @@ export default function App() {
           setStep("review");
         } catch (innerErr: any) {
           console.error("Error during inner audio processing:", innerErr);
+          setAppNotification({
+            type: "warning",
+            message: `Microphone audio transcription could not be completed (${innerErr.message || "empty/invalid audio captured"}). To let you try the clinical dashboard immediately, we have loaded a sample consultation dialogue. You can edit this dialogue and click 'Regenerate Summary' to try different cases!`
+          });
           // Fallback transcription simulation so the app is always fully interactive
           runBackupSimulation("Doctor: Hi Sarah, how is the dry cough? Patient: It's persistent, especially at night. Doctor: We will switch Lisinopril to Losartan 50mg daily. Stop Lisinopril. Drink fluids, and let's follow up in 4 weeks.");
         }
       };
     } catch (err: any) {
       console.error("Error processing audio:", err);
+      setAppNotification({
+        type: "warning",
+        message: `Audio processing failed (${err.message}). Loaded a standard clinical discussion instead.`
+      });
       runBackupSimulation("Doctor-patient discussion about blood pressure and medication switch.");
     }
   };
@@ -376,7 +388,7 @@ export default function App() {
   // Back up simulated summarizer if endpoint fails
   const runBackupSimulation = async (text: string) => {
     setRawTranscript(text);
-    setProcessingStatus("Generating secure clinical summary via backup...");
+    setProcessingStatus("Generating secure clinical summary...");
     try {
       const sumResponse = await fetch("/api/summarize", {
         method: "POST",
@@ -387,20 +399,45 @@ export default function App() {
         const sumData = await sumResponse.json();
         setEditedSummary(sumData.summary);
       } else {
-        throw new Error("Backup summarizer failed");
+        const errorData = await sumResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Summarize API returned error status");
       }
-    } catch (err) {
-      // Direct offline fallback representation to ensure 100% liveness
-      setEditedSummary({
-        chiefComplaint: "Dry cough and blood pressure review",
-        symptoms: "Dry hacking cough, morning dizziness",
-        diagnosis: "Lisinopril-induced cough & hypertension managed",
-        prescription: "Losartan 50mg, 1 tablet once daily in the morning.",
-        precautions: "Monitor closely for dizziness, swelling of lips/face.",
-        dietLifestyle: "Low-sodium diet, moderate hydration, track daily logs.",
-        followUp: "4 weeks follow-up to evaluate kidney function.",
-        additionalNotes: "Discontinue Lisinopril immediately.",
-      });
+    } catch (err: any) {
+      console.warn("Using smart offline fallback because summarizer failed:", err);
+      // Give a small notice unless we loaded a scenario on purpose
+      if (!appNotification) {
+        setAppNotification({
+          type: "warning",
+          message: `The Gemini Summarizer API returned an error (${err.message || "Offline"}). We have loaded a high-fidelity pre-compiled clinical report based on the scenario guidelines.`
+        });
+      }
+
+      // Check which clinical scenario is being simulated to return correct distinct fallback
+      const textLower = text.toLowerCase();
+      if (textLower.includes("bronchitis") || textLower.includes("miller") || textLower.includes("robert") || textLower.includes("albuterol")) {
+        setEditedSummary({
+          chiefComplaint: "Severe chesty cough for 5 days with yellow phlegm and fatigue.",
+          symptoms: "Cough with yellow sputum, fatigue, low-grade fever (100.2 F), coarse lung crackles in the bronchial area.",
+          diagnosis: "Acute Bronchitis (viral)",
+          prescription: "Benzonatate 100mg - 1 capsule PO TID as needed for severe cough.\nAlbuterol 90mcg inhaler - 2 puffs every 6 hours as needed for chest tightness.",
+          precautions: "Seek urgent care if breathing difficulty worsens, bloody mucus develops, or fever exceeds 102 F.",
+          dietLifestyle: "Increase warm fluid intake, ample physical rest, use humidifier in bedroom.",
+          followUp: "10 days follow-up if symptoms do not resolve or if they worsen.",
+          additionalNotes: "Condition is viral; antibiotics are not clinically indicated.",
+        });
+      } else {
+        // Default to Hypertension / Sarah Jenkins fallback
+        setEditedSummary({
+          chiefComplaint: "Persistent dry cough for 3 weeks, worsening at night, morning dizziness.",
+          symptoms: "Dry hacking cough, nocturnal aggravation, morning dizziness. Home BP log reads 132/84.",
+          diagnosis: "Lisinopril-induced cough & hypertension managed.",
+          prescription: "Losartan 50mg, 1 tablet PO once daily in the morning. Stop Lisinopril 10mg immediately.",
+          precautions: "Monitor closely for allergic reactions, deep facial swelling, or severe lightheadedness.",
+          dietLifestyle: "Maintain low-sodium diet, limit processed foods, maintain good daily hydration.",
+          followUp: "4 weeks follow-up to evaluate kidney function and potassium levels.",
+          additionalNotes: "Dry cough is a well-documented side effect of Lisinopril therapy.",
+        });
+      }
     }
     setIsProcessing(false);
     setStep("review");
@@ -793,6 +830,36 @@ export default function App() {
 
       {/* Main Screen */}
       <main className="flex-grow py-10 px-4 max-w-4xl w-full mx-auto">
+        {appNotification && (
+          <div className={`mb-6 p-4 rounded-xl border flex items-start space-x-3 text-sm shadow-sm relative ${
+            appNotification.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : appNotification.type === "error"
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+          }`}>
+            <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${
+              appNotification.type === "success"
+                ? "text-emerald-600"
+                : appNotification.type === "error"
+                ? "text-rose-600"
+                : "text-amber-600"
+            }`} />
+            <div className="flex-grow pr-6">
+              <span className="font-semibold block uppercase text-[10px] tracking-wider mb-0.5">
+                {appNotification.type === "success" ? "Success" : appNotification.type === "error" ? "System Error" : "System Notification"}
+              </span>
+              <p>{appNotification.message}</p>
+            </div>
+            <button
+              onClick={() => setAppNotification(null)}
+              className="absolute right-3 top-3 text-slate-450 hover:text-slate-700 font-bold text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {isProcessing ? (
           /* Processing Loading Screen */
           <div className="bg-white rounded-2xl border border-slate-200 p-12 shadow-sm text-center max-w-lg mx-auto my-12">
@@ -978,13 +1045,61 @@ export default function App() {
                 </div>
 
                 {/* Raw Transcript Collapsible Accordion (for clinical verification) */}
-                <details className="mb-6 bg-slate-50 rounded-xl border border-slate-150 overflow-hidden text-sm">
+                <details className="mb-6 bg-slate-50 rounded-xl border border-slate-150 overflow-hidden text-sm" open={!rawTranscript}>
                   <summary className="font-semibold p-4 cursor-pointer select-none text-slate-700 hover:text-slate-900 transition-all flex items-center justify-between">
-                    <span>View Conversation Dialogue Transcript</span>
-                    <span className="text-xs font-medium text-slate-400">Expand for Verbatim Record</span>
+                    <span>View/Edit Consultation Dialogue Transcript</span>
+                    <span className="text-xs font-semibold text-teal-600">Modify dialogue & re-summarize</span>
                   </summary>
-                  <div className="p-4 border-t border-slate-150 bg-white leading-relaxed text-slate-600 font-mono text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">
-                    {rawTranscript || "Dialogue transcription transcript not available."}
+                  <div className="p-4 border-t border-slate-150 bg-white space-y-3">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      You can edit this consultation transcript verbatim to test other clinical guidelines. Press the button below to generate a new medical summary instantly with Gemini.
+                    </p>
+                    <textarea
+                      value={rawTranscript}
+                      onChange={(e) => setRawTranscript(e.target.value)}
+                      placeholder="Doctor: Hi John... Patient: Yes..."
+                      className="w-full p-3 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 leading-relaxed focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all outline-none bg-slate-50/50"
+                      rows={6}
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={async () => {
+                          if (!rawTranscript.trim()) return;
+                          setIsProcessing(true);
+                          setProcessingStatus("Gemini is re-generating clinical summary...");
+                          setAppNotification(null);
+                          try {
+                            const sumResponse = await fetch("/api/summarize", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ transcript: rawTranscript }),
+                            });
+                            if (!sumResponse.ok) {
+                              const errorData = await sumResponse.json().catch(() => ({}));
+                              throw new Error(errorData.error || "AI Summary generation failed");
+                            }
+                            const sumData = await sumResponse.json();
+                            setEditedSummary(sumData.summary);
+                            setAppNotification({
+                              type: "success",
+                              message: "Clinical summary successfully re-generated by Gemini based on your modified transcript!"
+                            });
+                          } catch (err: any) {
+                            setAppNotification({
+                              type: "error",
+                              message: `Summary regeneration failed: ${err.message}`
+                            });
+                          } finally {
+                            setIsProcessing(false);
+                          }
+                        }}
+                        disabled={!rawTranscript.trim()}
+                        className="py-2 px-4 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-bold rounded-xl text-xs flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Regenerate Summary with Gemini</span>
+                      </button>
+                    </div>
                   </div>
                 </details>
 
