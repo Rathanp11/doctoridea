@@ -120,16 +120,12 @@ export default function App() {
     }
   ];
 
-  // Read reportId from query parameter or pathname
+  // Read reportId from query parameter
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("reportId");
-    const path = window.location.pathname;
-    
     if (id) {
       setReportId(id);
-    } else if (path === "/sample-report" || path.startsWith("/sample-report/")) {
-      setReportId("sample");
     }
     fetchEmails();
   }, []);
@@ -494,34 +490,6 @@ export default function App() {
     setIsVerifying(true);
     setPatientError("");
 
-    if (reportId === "sample") {
-      setTimeout(() => {
-        if (enteredPasskey === "123456") {
-          setPatientReport({
-            patientName: "Sarah Jenkins",
-            patientPhone: "+1 (555) 349-2041",
-            patientEmail: "sarah.jenkins@example.com",
-            consultationDate: "2026-07-11",
-            transcript: "Doctor: Good morning, Sarah. How have you been feeling since we started the lisinopril 10mg? Patient: Good morning, doctor. Generally better, but I've had a bit of a dry, persistent cough especially at night, and some mild dizziness in the morning. Doctor: Ah, that dry cough is a well-known side effect of lisinopril. Let's look at your home blood pressure logs. Patient: They've been around 132 over 84. Doctor: That is excellent progress down from 150, but we should address that cough. I'm going to switch you from Lisinopril to Losartan 50mg once daily in the morning. Stop taking the Lisinopril immediately. Please monitor for any allergic reactions or deep swelling. Continue a low-sodium diet, limit processed food, and stay well hydrated. Let's schedule a follow-up in 4 weeks to check your kidney function and potassium levels.",
-            summary: {
-              chiefComplaint: "Persistent dry cough for 3 weeks, worsening nocturnally, and mild morning dizziness.",
-              symptoms: "Dry hacking cough, nocturnal aggravation, morning lightheadedness/dizziness. No fever, no shortness of breath.",
-              diagnosis: "Lisinopril-induced cough & Hypertension well-controlled (Home blood pressure: 132/84).",
-              prescription: "Losartan 50mg - 1 tablet orally once daily in the morning.\n(Discontinue Lisinopril 10mg immediately).",
-              precautions: "Stop Losartan and seek immediate urgent care if you develop swelling of the lips, tongue, or face, or have difficulty breathing. Monitor blood pressure daily and record in log.",
-              dietLifestyle: "Maintain low-sodium dietary guidelines (limit to <2,000mg/day). Limit processed foods. Keep well hydrated with water.",
-              followUp: "In-clinic follow-up in 4 weeks to recheck blood pressure, kidney function panels, and serum potassium.",
-              additionalNotes: "Discontinue Lisinopril immediately starting tomorrow morning. Bring your blood pressure logs to the next visit.",
-            }
-          });
-        } else {
-          setPatientError("Incorrect access code. For this demo, please enter the code: 123456");
-        }
-        setIsVerifying(false);
-      }, 700);
-      return;
-    }
-
     try {
       const response = await fetch(`/api/reports/${reportId}/verify`, {
         method: "POST",
@@ -585,19 +553,11 @@ export default function App() {
             <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200/85 p-8 shadow-md">
               <div className="text-center mb-6">
                 <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                  {reportId === "sample" ? <Sparkles className="w-6 h-6 text-teal-600 animate-bounce" /> : <Lock className="w-6 h-6 animate-pulse" />}
+                  <Lock className="w-6 h-6 animate-pulse" />
                 </div>
-                <h2 className="font-display font-bold text-xl text-slate-900 tracking-tight">
-                  {reportId === "sample" ? "Interactive Demo Portal" : "Secure Record Access"}
-                </h2>
+                <h2 className="font-display font-bold text-xl text-slate-900 tracking-tight">Secure Record Access</h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  {reportId === "sample" ? (
-                    <>
-                      Welcome to the demo. Use the secure clinical access code <strong className="text-teal-600 bg-teal-50 px-2 py-0.5 rounded font-mono text-sm">123456</strong> to view the populated medical report.
-                    </>
-                  ) : (
-                    "This clinical summary is protected under medical privacy protocols. Enter your access code below."
-                  )}
+                  This clinical summary is protected under medical privacy protocols. Enter your access code below.
                 </p>
               </div>
 
@@ -852,23 +812,13 @@ export default function App() {
             {step === "form" && (
               /* SCREEN 1: NEW CONSULTATION FORM */
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-2xl mx-auto">
-                <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="space-y-1">
-                    <h2 className="font-display font-bold text-2xl text-slate-900 tracking-tight">
-                      Start Patient Consultation
-                    </h2>
-                    <p className="text-slate-500 text-sm">
-                      Fill out patient details before activating the live consultation audio recorder.
-                    </p>
-                  </div>
-                  <a
-                    href="/sample-report"
-                    className="shrink-0 inline-flex items-center space-x-1.5 py-2 px-3 bg-teal-50 hover:bg-teal-100/75 text-teal-700 rounded-xl text-xs font-semibold tracking-tight transition-all shadow-xs border border-teal-100"
-                    id="demo-report-button"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                    <span>View Sample Report Demo</span>
-                  </a>
+                <div className="mb-6">
+                  <h2 className="font-display font-bold text-2xl text-slate-900 tracking-tight">
+                    Start Patient Consultation
+                  </h2>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Fill out patient details before activating the live consultation audio recorder.
+                  </p>
                 </div>
 
                 {/* Form Fields */}
