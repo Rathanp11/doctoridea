@@ -68,7 +68,13 @@ app.post("/api/transcribe", async (req, res) => {
        return;
     }
 
-    console.log("Processing audio transcription request. Size:", audio.length, "Mime:", mimeType);
+    // Sanitize MIME type (e.g. "audio/webm;codecs=opus" -> "audio/webm")
+    let cleanMimeType = (mimeType || "audio/webm").split(";")[0].trim();
+    if (!cleanMimeType.startsWith("audio/")) {
+      cleanMimeType = "audio/webm";
+    }
+
+    console.log("Processing audio transcription request. Size:", audio.length, "Original Mime:", mimeType, "Cleaned Mime:", cleanMimeType);
 
     // Call Gemini 3.5-flash with audio part
     const response = await ai.models.generateContent({
@@ -76,7 +82,7 @@ app.post("/api/transcribe", async (req, res) => {
       contents: [
         {
           inlineData: {
-            mimeType: mimeType || "audio/webm",
+            mimeType: cleanMimeType,
             data: audio,
           },
         },

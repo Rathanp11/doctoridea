@@ -275,7 +275,9 @@ export default function App() {
 
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      recorderMimeTypeRef.current = mediaRecorder.mimeType || "audio/webm";
+      // Sanitize MIME type (e.g., convert "audio/webm;codecs=opus" to "audio/webm" for Gemini)
+      const rawMimeType = mediaRecorder.mimeType || "audio/webm";
+      recorderMimeTypeRef.current = rawMimeType.split(";")[0].trim();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
