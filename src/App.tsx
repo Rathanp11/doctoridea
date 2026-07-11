@@ -48,6 +48,42 @@ interface SimulatedEmail {
 export default function App() {
   // Query parameters / Routing state
   const [reportId, setReportId] = useState<string | null>(null);
+  const [isSampleRoute, setIsSampleRoute] = useState(false);
+  const [sampleChecklist, setSampleChecklist] = useState([
+    { id: "stop", label: "Discontinue Lisinopril 10mg immediately (ACE inhibitor)", checked: true }, // pre-check some for realism
+    { id: "start", label: "Begin taking Losartan 50mg daily in the morning (ARB)", checked: false },
+    { id: "hydrate", label: "Increase fluid intake (drink 8-10 glasses of water daily)", checked: false },
+    { id: "salt", label: "Follow low-sodium diet guidelines (avoid processed foods)", checked: false },
+    { id: "monitor", label: "Measure and log home blood pressure daily (aim for < 130/80)", checked: false },
+    { id: "blood", label: "Book follow-up blood test in 4 weeks for kidney function & potassium check", checked: false },
+  ]);
+
+  const handleToggleChecklist = (id: string) => {
+    setSampleChecklist(prev =>
+      prev.map(item => (item.id === id ? { ...item, checked: !item.checked } : item))
+    );
+  };
+
+  const [isPlayingSampleAudio, setIsPlayingSampleAudio] = useState(false);
+  const [sampleAudioProgress, setSampleAudioProgress] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (isPlayingSampleAudio) {
+      interval = setInterval(() => {
+        setSampleAudioProgress(prev => {
+          if (prev >= 100) {
+            setIsPlayingSampleAudio(false);
+            return 0;
+          }
+          return prev + 2; // Increments to 100% in 50 seconds
+        });
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isPlayingSampleAudio]);
 
   // Patient Page States
   const [enteredPasskey, setEnteredPasskey] = useState("");
@@ -127,6 +163,9 @@ export default function App() {
     const id = params.get("reportId");
     if (id) {
       setReportId(id);
+    }
+    if (window.location.pathname === "/sample-report-1") {
+      setIsSampleRoute(true);
     }
     fetchEmails();
   }, []);
@@ -554,6 +593,488 @@ export default function App() {
   const handlePrintReport = () => {
     window.print();
   };
+
+  // Render Patient-facing Portal Layout (Sample Report Mode)
+  if (isSampleRoute) {
+    const checklistProgress = Math.round((sampleChecklist.filter(item => item.checked).length / sampleChecklist.length) * 100);
+
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between animate-fade-in" id="sample-patient-root">
+        {/* Print-Friendly Styles */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            body { background: white !important; color: black !important; }
+            #patient-header, #print-action-btn, #demo-banner, .no-print { display: none !important; }
+            .print-card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+            .print-layout { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+          }
+        `}} />
+
+        {/* Header */}
+        <header id="patient-header" className="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-sm">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="p-1.5 bg-teal-500 rounded-lg text-white">
+                <FileHeart className="w-5 h-5" />
+              </div>
+              <span className="font-display font-bold text-lg text-slate-900 tracking-tight">ConsultNotes</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <a
+                href="/"
+                className="text-xs font-semibold text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 py-1.5 px-3.5 rounded-full flex items-center space-x-1 transition-all"
+              >
+                <span>Try Live App</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+              <div className="flex items-center space-x-2 text-xs text-slate-500 bg-slate-100 py-1.5 px-3 rounded-full">
+                <Lock className="w-3.5 h-3.5 text-teal-600" />
+                <span className="font-medium">Confidential Patient Portal</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Core Content Area */}
+        <main className="flex-grow py-8 px-4 max-w-5xl w-full mx-auto print-layout">
+          {/* Demo Mode Notice Banner */}
+          <div id="demo-banner" className="mb-6 bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-teal-950 shadow-sm">
+            <div className="flex items-start space-x-3">
+              <Sparkles className="w-5 h-5 text-teal-600 shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <span className="font-bold block text-xs uppercase tracking-wider text-teal-700 mb-0.5">Interactive Demo Report</span>
+                <p className="text-slate-600 leading-relaxed text-xs">
+                  This page illustrates a live patient summary compiled directly from a consultation recording. Feel free to interact with the checklist, toggle the simulated audio transcript, or print the report.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center space-x-2">
+              <button
+                onClick={() => window.location.href = "/"}
+                className="py-1.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm"
+              >
+                Create New Report
+              </button>
+            </div>
+          </div>
+
+          {/* Patient Report View */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-10 shadow-sm print-card">
+            
+            {/* Header info / Branding */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between border-b border-slate-100 pb-6 mb-6 gap-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 bg-teal-50 py-1 px-2.5 rounded-md">
+                  Patient Summary Copy
+                </span>
+                <h1 className="font-display font-extrabold text-3xl text-slate-900 tracking-tight mt-3">
+                  Clinical Consultation Summary
+                </h1>
+                <p className="text-slate-500 text-sm mt-1">
+                  Prepared securely using Generative AI synthesis of your physician-patient discussion.
+                </p>
+              </div>
+              <div id="print-action-btn" className="flex items-center space-x-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center space-x-2 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-all"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Report (PDF)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Patient and Visit Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50/90 rounded-2xl p-5 border border-slate-100 mb-8 text-xs">
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block tracking-wider">Patient Name</span>
+                <p className="font-bold text-slate-900 mt-1 text-sm">Sarah Jenkins</p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block tracking-wider">Patient ID / Contact</span>
+                <p className="font-medium text-slate-700 mt-1 text-sm">sarah.j@example.com</p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block tracking-wider">Consultation Date</span>
+                <p className="font-semibold text-slate-800 mt-1 text-sm flex items-center">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
+                  July 11, 2026
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block tracking-wider">Attending Clinician</span>
+                <p className="font-semibold text-teal-600 mt-1 text-sm flex items-center">
+                  <User className="w-3.5 h-3.5 text-teal-500 mr-1.5" />
+                  Dr. Robert Evans, MD
+                </p>
+              </div>
+            </div>
+
+            {/* Simulated Audio Playback Widget */}
+            <div className="no-print mb-8 bg-slate-900 text-slate-100 p-5 rounded-2xl border border-slate-800 shadow-inner">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-full ${isPlayingSampleAudio ? 'bg-red-500 text-white animate-pulse' : 'bg-teal-500/20 text-teal-400'}`}>
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-200">Consultation Recording</h4>
+                    <p className="text-[10px] text-slate-400">Duration: 2m 45s &bull; Processed securely with end-to-end encryption</p>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => {
+                      if (isPlayingSampleAudio) {
+                        setIsPlayingSampleAudio(false);
+                      } else {
+                        setIsPlayingSampleAudio(true);
+                        if (sampleAudioProgress === 0) setSampleAudioProgress(2);
+                      }
+                    }}
+                    className={`flex items-center justify-center space-x-1.5 py-1.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                      isPlayingSampleAudio ? 'bg-amber-500 text-slate-900 hover:bg-amber-400' : 'bg-teal-500 text-white hover:bg-teal-400'
+                    }`}
+                  >
+                    <span>{isPlayingSampleAudio ? "Pause Playback" : "Play Consultation Audio"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress & Waveform */}
+              <div className="flex items-center space-x-3">
+                <span className="font-mono text-[10px] text-slate-400">
+                  {isPlayingSampleAudio ? `0:${Math.floor((sampleAudioProgress/100)*165).toString().padStart(2, '0')}` : "0:00"}
+                </span>
+                
+                {/* Simulated Audio Bars */}
+                <div className="flex-grow flex items-center justify-between h-8 gap-0.5 px-2 bg-slate-950/60 rounded-lg overflow-hidden">
+                  {[...Array(48)].map((_, i) => {
+                    const active = sampleAudioProgress > (i / 48) * 100;
+                    // Dynamic height based on standard voice frequencies
+                    const heights = [20, 40, 60, 30, 70, 50, 80, 20, 40, 60, 50, 70, 30, 90, 40, 60, 20, 50, 70, 30, 80, 40, 60, 50, 20, 60, 80, 30, 70, 50, 90, 40, 60, 20, 50, 70, 30, 80, 40, 60, 50, 20, 40, 60, 30, 70, 50, 80];
+                    const h = heights[i % heights.length];
+                    return (
+                      <div
+                        key={i}
+                        style={{ height: `${h}%` }}
+                        className={`w-1 rounded-full transition-all ${
+                          active
+                            ? isPlayingSampleAudio
+                              ? 'bg-gradient-to-t from-teal-500 to-emerald-400'
+                              : 'bg-teal-600'
+                            : 'bg-slate-800'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <span className="font-mono text-[10px] text-slate-400">2:45</span>
+              </div>
+            </div>
+
+            {/* Vitals Summary and Home Tracker Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Vitals Dashboard */}
+              <div className="border border-slate-150 rounded-2xl p-5 bg-slate-50/50">
+                <h3 className="font-display font-bold text-sm text-slate-900 mb-4 flex items-center">
+                  <Activity className="w-4 h-4 text-teal-600 mr-2" />
+                  Office Vitals & Measurement
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block">Blood Pressure</span>
+                    <span className="text-lg font-bold text-slate-800 block mt-0.5">132 / 84 mmHg</span>
+                    <span className="text-[10px] font-bold text-teal-600 bg-teal-50 py-0.5 px-2 rounded-full inline-block mt-1">
+                      Controlled BP
+                    </span>
+                  </div>
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block">Heart Rate (Pulse)</span>
+                    <span className="text-lg font-bold text-slate-800 block mt-0.5">72 bpm</span>
+                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 py-0.5 px-2 rounded-full inline-block mt-1">
+                      Normal Sinus
+                    </span>
+                  </div>
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block">SPO2 (Oxygen)</span>
+                    <span className="text-lg font-bold text-slate-800 block mt-0.5">99%</span>
+                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 py-0.5 px-2 rounded-full inline-block mt-1">
+                      Excellent Sat
+                    </span>
+                  </div>
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block">Body Temp</span>
+                    <span className="text-lg font-bold text-slate-800 block mt-0.5">98.6 °F</span>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 py-0.5 px-2 rounded-full inline-block mt-1">
+                      Apyrexial
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Blood Pressure Control Progression Tracker */}
+              <div className="border border-slate-150 rounded-2xl p-5 bg-slate-50/50 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-display font-bold text-sm text-slate-900 flex items-center">
+                      <FileHeart className="w-4 h-4 text-rose-500 mr-2" />
+                      Hypertension Control Trend
+                    </h3>
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 py-0.5 px-2 rounded-full">
+                      -12% Reduction
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                    Visual comparison showing hypertension management progress since beginning therapy.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Previous State */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500 font-medium">Initial Office Visit (Untreated)</span>
+                      <span className="font-bold text-slate-700">150 / 95 mmHg</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-rose-500 rounded-full" style={{ width: "95%" }}></div>
+                    </div>
+                  </div>
+
+                  {/* Current State */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500 font-medium">Today's Reading (Therapy Controlled)</span>
+                      <span className="font-bold text-emerald-600">132 / 84 mmHg</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: "65%" }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400 text-center italic">
+                  Note: Home monitoring targets are strictly blood pressures under 130/80 mmHg.
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Patient To-Do Checklist (Highly Engaged) */}
+            <div className="mb-8 border border-slate-150 rounded-2xl p-6 bg-slate-50/50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-4 mb-4 gap-2">
+                <div>
+                  <h3 className="font-display font-bold text-base text-slate-950 flex items-center">
+                    <CheckCircle className="w-5 h-5 text-teal-600 mr-2" />
+                    Interactive Home Care Checklist
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Toggle items as you perform them to track your adherence to the physician's instructions.
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="font-bold text-teal-600 text-sm block">{checklistProgress}% Completed</span>
+                  <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1.5 overflow-hidden ml-auto">
+                    <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${checklistProgress}%` }}></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {sampleChecklist.map((item) => (
+                  <label
+                    key={item.id}
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+                      item.checked
+                        ? 'bg-white border-teal-200 shadow-sm text-slate-500 line-through decoration-slate-300'
+                        : 'bg-white border-slate-150 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => handleToggleChecklist(item.id)}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-medium leading-relaxed">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Side-by-Side Medication Transition Comparison */}
+            <div className="mb-8 border border-slate-150 rounded-2xl p-6 bg-slate-50/50">
+              <h3 className="font-display font-bold text-base text-slate-950 mb-3 flex items-center">
+                <RotateCcw className="w-5 h-5 text-teal-600 mr-2" />
+                Medication Switch Protocol
+              </h3>
+              <p className="text-xs text-slate-500 mb-6">
+                A critical change has been made to your treatment regimen. Review the instructions carefully to avoid overlapping doses.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* DISCONTINUE CARD */}
+                <div className="border border-rose-150 rounded-2xl p-5 bg-rose-50/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-bold bg-rose-100 text-rose-700 py-1 px-2.5 rounded-full uppercase tracking-wider">
+                        DISCONTINUE IMMEDIATELY
+                      </span>
+                      <AlertCircle className="w-5 h-5 text-rose-500" />
+                    </div>
+                    <h4 className="font-bold text-lg text-slate-900 font-display">Lisinopril 10mg</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Dosage: One tablet daily</p>
+                    <p className="text-xs text-slate-700 leading-relaxed mt-3.5 bg-white p-3 rounded-xl border border-rose-100">
+                      <strong>Reason:</strong> Developed a persistent, nagging dry cough (especially troublesome at night). This is a well-documented side effect of ACE Inhibitors like Lisinopril.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-rose-100/50 flex items-center text-rose-700 text-xs font-semibold">
+                    <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                    Do not take any further doses of Lisinopril.
+                  </div>
+                </div>
+
+                {/* INITIATE CARD */}
+                <div className="border border-teal-150 rounded-2xl p-5 bg-teal-50/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-bold bg-teal-100 text-teal-700 py-1 px-2.5 rounded-full uppercase tracking-wider">
+                        INITIATE TOMORROW
+                      </span>
+                      <Sparkles className="w-5 h-5 text-teal-500" />
+                    </div>
+                    <h4 className="font-bold text-lg text-slate-900 font-display">Losartan 50mg</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Dosage: One tablet daily (in the morning)</p>
+                    <p className="text-xs text-slate-700 leading-relaxed mt-3.5 bg-white p-3 rounded-xl border border-teal-100">
+                      <strong>Advantage:</strong> Losartan is an Angiotensin II Receptor Blocker (ARB). It regulates blood pressure through a different pathway, resulting in a very low incidence of cough while retaining equal efficacy.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-teal-100/50 flex items-center text-teal-700 text-xs font-semibold">
+                    <ArrowRight className="w-4 h-4 mr-1.5 shrink-0" />
+                    Take first dose tomorrow morning with fluid.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Structured Summary Clinical Report Sections */}
+            <h3 className="font-display font-bold text-base text-slate-950 mb-4 flex items-center">
+              <FileText className="w-5 h-5 text-teal-600 mr-2" />
+              Detailed Clinical Narrative Summary
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              
+              {/* Chief Complaint */}
+              <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">Chief Complaint</span>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  Hypertension follow-up and evaluation of a distressing, dry cough that has persisted for several weeks.
+                </p>
+              </div>
+
+              {/* Symptoms Discussed */}
+              <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">Symptoms Discussed</span>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  Non-productive dry cough worsening when recumbent (at night). Occasional mild orthostatic dizziness in the morning. Home systolic readings average 132/84.
+                </p>
+              </div>
+
+              {/* Clinical Impression */}
+              <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
+                <span className="text-[10px] uppercase text-emerald-600 font-bold block mb-1">Clinical Impression & Diagnosis</span>
+                <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                  Controlled Primary Essential Hypertension. Side effect: Lisinopril-induced dry cough (adverse drug reaction secondary to ACE Inhibitor therapy).
+                </p>
+              </div>
+
+              {/* Warnings and Precautions */}
+              <div className="bg-rose-50/30 p-4 rounded-2xl border border-rose-100">
+                <span className="text-[10px] uppercase text-rose-600 font-bold block mb-1">Precautions & Emergency Warnings</span>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  Stop medication immediately and contact medical care if face, lips, or tongue swelling (angioedema) occurs, or if you develop debilitating dizziness or fainting.
+                </p>
+              </div>
+
+              {/* Diet & Lifestyle */}
+              <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 col-span-1 md:col-span-2">
+                <span className="text-[10px] uppercase text-slate-400 font-bold block mb-1">Diet & Lifestyle Guidelines</span>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  Restricted dietary sodium intake (under 2,000mg per day). Avoid processed, salted foods. Exercise moderation in physical activities, and drink ample fluids (8-10 glasses water) to assist with hydration.
+                </p>
+              </div>
+
+              {/* Follow-up Plans */}
+              <div className="bg-teal-50/20 p-4 rounded-2xl border border-teal-100 col-span-1 md:col-span-2">
+                <span className="text-[10px] uppercase text-teal-600 font-bold block mb-1">Next Follow-Up Appointment</span>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed flex items-center">
+                  <Clock className="w-4 h-4 text-teal-600 mr-2 shrink-0" />
+                  <span>Scheduled in exactly 4 weeks to perform a blood draw (Basic Metabolic Panel) to check serum potassium, Blood Urea Nitrogen (BUN), and Creatinine levels.</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Patient FAQ / Understanding Your Plan Section */}
+            <div className="mb-8 border border-slate-150 rounded-2xl p-6 bg-slate-50/30">
+              <h3 className="font-display font-bold text-base text-slate-900 mb-4 flex items-center">
+                <AlertCircle className="w-5 h-5 text-teal-600 mr-2 shrink-0" />
+                Frequently Asked Patient Questions
+              </h3>
+              
+              <div className="space-y-4 text-xs">
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+                  <h4 className="font-bold text-slate-900 mb-1">Q: Why did my cough occur on Lisinopril?</h4>
+                  <p className="text-slate-600 leading-relaxed">
+                    Lisinopril belongs to the ACE Inhibitor family. ACE Inhibitors block an enzyme that breaks down a natural substance in the lungs called bradykinin. This build-up of bradykinin is what triggers a dry, nagging cough in up to 15% of patients. It is completely benign but highly uncomfortable, which is why we are switching you.
+                  </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+                  <h4 className="font-bold text-slate-900 mb-1">Q: Will my cough go away after stopping Lisinopril?</h4>
+                  <p className="text-slate-600 leading-relaxed">
+                    Yes. The cough typically starts to fade within 3-7 days after stopping the ACE inhibitor, though in some cases, it can take up to 2-4 weeks to completely resolve as your lung pathways return to baseline.
+                  </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+                  <h4 className="font-bold text-slate-900 mb-1">Q: Why is a blood test required in 4 weeks?</h4>
+                  <p className="text-slate-600 leading-relaxed">
+                    Both ACE Inhibitors (Lisinopril) and ARBs (Losartan) can affect how your kidneys filter blood and how your body processes potassium. Checking your blood in 4 weeks ensures that your kidneys are tolerating the new medication safely and that your blood potassium levels remain in a healthy range.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversation Dialogue Transcript Accordion */}
+            <div className="mt-8 pt-6 border-t border-slate-150">
+              <h3 className="font-display font-bold text-sm text-slate-900 mb-3 flex items-center">
+                <FileText className="w-4 h-4 text-teal-600 mr-2 shrink-0" />
+                Consultation Transcript Details
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">
+                This transcription was securely captured and analyzed to construct the summary records shown above.
+              </p>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 leading-relaxed text-slate-600 font-mono text-[11px] whitespace-pre-wrap max-h-56 overflow-y-auto">
+                Doctor: Good morning, Sarah. How have you been feeling since we started the lisinopril 10mg?
+                {"\n"}Patient: Good morning, doctor. Generally better, but I've had a bit of a dry, persistent cough especially at night, and some mild dizziness in the morning.
+                {"\n"}Doctor: Ah, that dry cough is a well-known side effect of lisinopril. Let's look at your home blood pressure logs.
+                {"\n"}Patient: They've been around 132 over 84.
+                {"\n"}Doctor: That is excellent progress down from 150, but we should address that cough. I'm going to switch you from Lisinopril to Losartan 50mg once daily in the morning. Stop taking the Lisinopril immediately. Please monitor for any allergic reactions or deep swelling. Continue a low-sodium diet, limit processed food, and stay well hydrated. Let's schedule a follow-up in 4 weeks to check your kidney function and potassium levels.
+              </div>
+            </div>
+
+            {/* Disclaimer */}
+            <div className="mt-8 pt-6 border-t border-slate-100 text-[10px] text-slate-400 text-center space-y-1">
+              <p>Confidential Medical Record. This document contains protected health information (PHI) and is compiled under security directives.</p>
+              <p>&copy; ConsultNotes Inc. Connected Care Systems.</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Render Patient-facing Portal Layout
   if (reportId) {
