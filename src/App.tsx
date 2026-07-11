@@ -123,6 +123,7 @@ export default function App() {
     passkey: string;
     link: string;
   } | null>(null);
+  const [demoPasskeyHelper, setDemoPasskeyHelper] = useState<string | null>(null);
 
   // Mock server mail log list
   const [sentEmails, setSentEmails] = useState<SimulatedEmail[]>([]);
@@ -537,6 +538,10 @@ export default function App() {
 
       setIsProcessing(false);
       setStep("sent");
+      
+      // Immediately transition to the newly created secure report's passkey flow!
+      setReportId(data.reportId);
+      setDemoPasskeyHelper(data.passkey);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "An error occurred while sending the report.");
@@ -553,6 +558,11 @@ export default function App() {
     setRawTranscript("");
     setRecordingSeconds(0);
     setCreatedReportInfo(null);
+    setDemoPasskeyHelper(null);
+    setReportId(null);
+    setPatientReport(null);
+    setEnteredPasskey("");
+    setPatientError("");
     setStep("form");
   };
 
@@ -1099,9 +1109,20 @@ export default function App() {
               </div>
               <span className="font-display font-bold text-lg text-slate-900 tracking-tight">ConsultNotes</span>
             </div>
-            <div className="flex items-center space-x-2 text-xs text-slate-500 bg-slate-100 py-1 px-2.5 rounded-full">
-              <Lock className="w-3.5 h-3.5 text-teal-600" />
-              <span className="font-medium">Confidential Patient Portal</span>
+            <div className="flex items-center space-x-3">
+              {demoPasskeyHelper && (
+                <button
+                  onClick={resetDoctorFlow}
+                  className="flex items-center space-x-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs transition-all shadow-sm shrink-0 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Return to Doctor Portal</span>
+                </button>
+              )}
+              <div className="flex items-center space-x-2 text-xs text-slate-500 bg-slate-100 py-1 px-2.5 rounded-full">
+                <Lock className="w-3.5 h-3.5 text-teal-600" />
+                <span className="font-medium">Confidential Patient Portal</span>
+              </div>
             </div>
           </div>
         </header>
@@ -1122,6 +1143,28 @@ export default function App() {
               </div>
 
               <div className="space-y-4">
+                {demoPasskeyHelper && (
+                  <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl text-left text-xs text-teal-850">
+                    <span className="font-bold uppercase tracking-wider block mb-1 flex items-center text-teal-800">
+                      <Sparkles className="w-3.5 h-3.5 text-teal-600 mr-1 shrink-0" />
+                      Testing Passkey Helper
+                    </span>
+                    <p className="leading-relaxed mb-2">
+                      Use the 6-digit access code below to unlock the secure report:
+                    </p>
+                    <div className="flex items-center justify-between bg-white border border-teal-150 rounded-lg p-2 mt-1 shadow-xs">
+                      <span className="font-mono font-bold text-base tracking-widest text-slate-900 px-1">
+                        {demoPasskeyHelper}
+                      </span>
+                      <button
+                        onClick={() => setEnteredPasskey(demoPasskeyHelper)}
+                        className="py-1 px-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-[10px] font-bold transition-all cursor-pointer shadow-sm"
+                      >
+                        Autofill Code
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
                     6-Digit Access Code
